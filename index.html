@@ -233,14 +233,23 @@
 
         // === OCR INITIALIZATION ===
         async function initOCR() {
-            if (worker) return worker;
-            const statusLabel = document.getElementById('ocr-status');
-            const progress = document.getElementById('ocr-progress');
-            
-            try {
-                statusLabel.textContent = "Lade OCR Engine...";
-                async function initOCR() {
     if (bcWorker) return bcWorker;
+    
+    // Tworzymy workera, ale jawnie wskazujemy mu ścieżki w CDN 
+    // i wymuszamy lokalne ładowanie bez szukania w innych źródłach
+    bcWorker = await Tesseract.createWorker('eng', 1, {
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0/tesseract-core.wasm.js',
+        // Używamy oficjalnego CDN, który Tesseract sam preferuje
+        langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-lang@1.0.0/eng.traineddata.gz',
+    });
+
+    await bcWorker.setParameters({
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
+    });
+    
+    return bcWorker;
+}
     
     // Zamiast przekazywać funkcję w obiekcie, inicjujemy workerem i dodajemy loggera później
     bcWorker = await Tesseract.createWorker('eng'); 
