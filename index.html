@@ -239,17 +239,21 @@
             
             try {
                 statusLabel.textContent = "Lade OCR Engine...";
-                worker = await Tesseract.createWorker({
-                    logger: m => {
-                        if (m.status === 'loading language traineddata') {
-                            const pct = Math.round(m.progress * 100);
-                            progress.style.width = pct + '%';
-                            statusLabel.textContent = `Lade Modell... ${pct}%`;
-                        } else if (m.status === 'recognizing text') {
-                            statusLabel.textContent = `Analysiere... ${Math.round(m.progress * 100)}%`;
-                        }
-                    }
-                });
+                async function initOCR() {
+    if (bcWorker) return bcWorker;
+    
+    // Zamiast przekazywać funkcję w obiekcie, inicjujemy workerem i dodajemy loggera później
+    bcWorker = await Tesseract.createWorker('eng'); 
+    
+    // Jeśli chcesz logi, użyj metody .setLogger
+    await bcWorker.setLogger(m => {
+        console.log(m.status, m.progress);
+        // Opcjonalnie aktualizuj swój pasek postępu tutaj, 
+        // ale unikaj operacji na DOM, które wymagają 'this' lub zewnętrznych kontekstów
+    });
+    
+    return bcWorker;
+}
                 await worker.loadLanguage('eng');
                 await worker.initialize('eng');
                 progress.style.width = '100%';
