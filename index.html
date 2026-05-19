@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Modul Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <style>
-        /* Twoje oryginalne style */
         body { background: #0d0f14; color: #e8eaf0; font-family: sans-serif; margin: 0; padding: 0; }
         #bcModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; }
         #bcVideo { width:100%; height:100%; object-fit:cover; }
@@ -31,10 +30,9 @@
     let bcWorker = null;
     let bcStream = null;
 
-    // INICJALIZACJA OCR BEZ WORKERA (Zapobiega błędom bezpieczeństwa)
     async function initOCR() {
         if (bcWorker) return bcWorker;
-        // worker: false wymusza działanie w tym samym wątku, co GitHub Pages akceptuje
+        // Używamy worker: false, aby działało na GitHub Pages bez błędów bezpieczeństwa
         bcWorker = await Tesseract.createWorker('eng', 1, { worker: false });
         await bcWorker.setParameters({
             tessedit_char_whitelist: '0123456789',
@@ -46,14 +44,13 @@
     async function startBarcodeCamera() {
         const v = document.getElementById('bcVideo');
         const status = document.getElementById('bcScanStatus');
+        const modal = document.getElementById('bcModal');
         
         try {
-            // 1. Uruchom kamerę
             bcStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
             v.srcObject = bcStream;
-            document.getElementById('bcModal').style.display = 'block';
+            modal.style.display = 'block';
             
-            // 2. Ładuj OCR dopiero gdy kamera działa
             status.innerText = "Ładowanie OCR...";
             await initOCR();
             
@@ -91,6 +88,7 @@
         const sn = text.replace(/\s/g, '').match(/\d{8,}/);
         
         if(sn) {
+            // Wpisuje znaleziony numer w pierwsze pole tekstowe
             const input = document.querySelector('input[type="text"]');
             if(input) input.value = sn[0];
             stopBarcodeCamera();
