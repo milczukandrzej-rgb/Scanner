@@ -3,732 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
     <title>Modul Scanner</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-    
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <style>
-        :root {
-            --bg: #0d0f14; --surface: #161923; --card: #1e2330; --border: #2a3040;
-            --accent: #f0a500; --green: #00c896; --red: #ff4757; --blue: #4285f4;
-            --text: #e8eaf0; --muted: #6b7585;
-            --font-sans: 'IBM Plex Sans', sans-serif; --font-mono: 'IBM Plex Mono', monospace;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: var(--font-sans); background-color: var(--bg); color: var(--text); line-height: 1.5; -webkit-tap-highlight-color: transparent; }
-        
-        header { background-color: var(--surface); padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px; position: sticky; top: 0; z-index: 100; }
-        header h1 { font-size: 1.2rem; font-weight: 600; }
-        header span { color: var(--muted); font-size: 0.9rem; }
-        
-        #ocr-progress-container { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: transparent; }
-        #ocr-progress { height: 100%; width: 0%; background: var(--accent); transition: width 0.3s; }
-
-        .tabs { display: flex; background-color: var(--surface); border-bottom: 1px solid var(--border); }
-        .tab { flex: 1; padding: 12px 0; text-align: center; color: var(--muted); font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
-        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-        .content { display: none; padding: 20px; }
-        .content.active { display: block; }
-
-        .input-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 5px; }
-        input, select { width: 100%; padding: 12px; background-color: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-family: var(--font-sans); font-size: 1rem; }
-        input:focus, select:focus { outline: none; border-color: var(--accent); }
-        .row { display: flex; gap: 10px; }
-        .col { flex: 1; }
-
-        .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; text-align: center; margin-bottom: 10px; transition: opacity 0.2s; }
-        .btn:active { opacity: 0.8; }
-        .btn-primary { background-color: var(--accent); color: #000; }
-        .btn-secondary { background-color: var(--surface); color: var(--text); border: 1px solid var(--border); }
-        .btn-green { background-color: var(--green); color: #000; }
-        .btn-red { background-color: rgba(255, 71, 87, 0.1); color: var(--red); border: 1px solid var(--red); }
-        .btn-blue { background-color: var(--blue); color: #fff; }
-
-        #scanner-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #000; z-index: 999; }
-        #video-preview { width: 100%; height: 100%; object-fit: cover; }
-        #scanner-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        .scanner-ui { position: absolute; bottom: 30px; left: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .scanner-instructions { text-align: center; color: #fff; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 6px; font-weight: 500; }
-
-        .ic { background-color: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .ic-main { flex: 1; }
-        .ic-sn { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600; color: var(--accent); margin-bottom: 5px; }
-        .ic-details { font-size: 0.85rem; color: var(--muted); }
-        .ic-details span { color: var(--text); }
-        .ic-actions { margin-left: 15px; text-align: right; }
-        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-bottom: 10px; }
-        .badge.matched { background-color: rgba(0, 200, 150, 0.15); color: var(--green); }
-        .badge.not-found { background-color: rgba(255, 71, 87, 0.15); color: var(--red); }
-        .btn-icon { background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 5px; }
-
-        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 24px; border-radius: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); font-weight: 500; transition: top 0.3s; z-index: 1000; display: flex; align-items: center; gap: 10px; }
-        #toast.show { top: 20px; }
-        #toast.error { border-color: var(--red); color: var(--red); }
-        #toast.success { border-color: var(--green); color: var(--green); }
-        
-        .raw-text-box { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); background: #000; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; word-wrap: break-word;}
+        /* Twoje oryginalne style */
+        body { background: #0d0f14; color: #e8eaf0; font-family: sans-serif; margin: 0; padding: 0; }
+        #bcModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; }
+        #bcVideo { width:100%; height:100%; object-fit:cover; }
+        #bcOverlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+        #bcScanStatus { position:absolute; bottom:22%; left:0; right:0; text-align:center; color:#f0a500; font-weight:600; text-shadow:0 1px 4px #000; }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Swisspearl</h1>
-        <span>· offline OCR</span>
-        <div id="ocr-progress-container"><div id="ocr-progress"></div></div>
-    </header>
+<div id="bcModal">
+    <video id="bcVideo" autoplay playsinline muted></video>
+    <canvas id="bcOverlay"></canvas>
+    <div id="bcScanStatus">Skanowanie...</div>
+    <button onclick="stopBarcodeCamera()" style="position:absolute; top:20px; right:20px; padding:10px;">✕</button>
+</div>
 
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('scanner')">📷 Scanner</div>
-        <div class="tab" onclick="switchTab('list')">≡ Liste</div>
-        <div class="tab" onclick="switchTab('db')">💾 Lookup</div>
-    </div>
+<script>
+    let bcWorker = null;
+    let bcStream = null;
 
-    <div id="toast"></div>
-
-    <div id="content-scanner" class="content active">
-        <div class="row" style="margin-bottom: 15px;">
-            <button class="btn btn-primary" id="btn-start-scan" onclick="handleLiveScanClick()" style="margin-bottom:0; flex:1;">
-                📷 S/N Live-Scan
-            </button>
-            <button class="btn btn-blue" id="btn-scan-label" onclick="document.getElementById('lbl-upload').click()" style="margin-bottom:0; flex:1;">
-                📸 Etikett OCR
-            </button>
-        </div>
-        
-        <input type="file" id="lbl-upload" accept="image/*" capture="environment" style="display:none;" onchange="processLabelPhoto(event)">
-        <input type="file" id="sn-fallback-upload" accept="image/*" capture="environment" style="display:none;" onchange="processSNPhotoFallback(event)">
-        
-        <p id="ocr-status" style="text-align:center; font-size:0.85rem; color:var(--muted); margin-bottom: 20px;"></p>
-        
-        <div class="ic" style="flex-direction: column;">
-            <div class="input-group" style="width: 100%;">
-                <label>Seriennummer (S/N)</label>
-                <input type="text" id="inp-sn" placeholder="Z.B. 16004170708738" style="font-family: var(--font-mono); color: var(--accent);">
-            </div>
-            
-            <div class="row">
-                <div class="col input-group">
-                    <label>Artikelnummer</label>
-                    <input type="text" id="inp-item" placeholder="Z.B. 8087853" oninput="checkAutoFill()">
-                </div>
-                <div class="col input-group">
-                    <label>Leistung (Wp)</label>
-                    <input type="number" id="inp-wp" placeholder="Z.B. 280">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col input-group">
-                    <label>Generation</label>
-                    <select id="inp-gen">
-                        <option value="">-</option><option value="G3">G3</option><option value="G4">G4</option><option value="G5">G5</option>
-                    </select>
-                </div>
-                <div class="col input-group">
-                    <label>Grösse</label>
-                    <select id="inp-size">
-                        <option value="">-</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
-                    </select>
-                </div>
-                <div class="col input-group">
-                    <label>Klasse</label>
-                    <select id="inp-cls">
-                        <option value="">-</option><option value="A">A</option><option value="A2">A2</option><option value="B">B</option><option value="B2">B2</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="input-group" style="width: 100%;">
-                <label>Palette (Freitext)</label>
-                <input type="text" id="inp-palette" placeholder="Z.B. XL-Palette 1">
-            </div>
-
-            <p id="lookup-status" style="font-size:0.85rem; margin-bottom:5px; min-height: 20px;"></p>
-            
-            <button class="btn btn-secondary" onclick="toggleRawText()" style="font-size: 0.8rem; padding: 8px;">🔍 OCR Rohtext anzeigen</button>
-            <div id="raw-text" class="raw-text-box">Kein Scan durchgeführt...</div>
-
-            <button class="btn btn-primary" onclick="saveModule()" style="margin-top: 15px;">💾 Modul speichern</button>
-        </div>
-    </div>
-
-    <div id="content-list" class="content">
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button class="btn btn-primary" onclick="exportPDF()" style="flex:1; background:var(--accent);">📄 PDF</button>
-            <button class="btn btn-green" onclick="exportExcel()" style="flex:1;">⬇ Excel</button>
-        </div>
-        <div id="module-list"></div>
-        <button class="btn btn-red" onclick="clearList()" style="margin-top: 20px;">🗑 Alle Einträge löschen</button>
-    </div>
-
-    <div id="content-db" class="content">
-        <p style="font-size: 0.9rem; color: var(--muted); margin-bottom: 15px;">Laden Sie eine "Modul Erfassungsliste" (PDF) hoch, um die Referenzdatenbank zu füllen.</p>
-        <button class="btn btn-secondary" onclick="document.getElementById('pdf-upload').click()">📄 PDF Importieren</button>
-        <input type="file" id="pdf-upload" accept="application/pdf" style="display:none;" onchange="handlePDFUpload(event)">
-        <h3 style="margin: 20px 0 10px; font-size: 1rem;">Aktuelle Datenbank (<span id="db-count">0</span>)</h3>
-        <div id="db-list"></div>
-    </div>
-
-    <div id="scanner-modal">
-        <video id="video-preview" autoplay playsinline muted></video>
-        <canvas id="scanner-overlay"></canvas>
-        <div class="scanner-ui">
-            <div class="scanner-instructions">Umieść cyfry S/N w ramce / Ziffern einrahmen</div>
-            <button class="btn btn-secondary" onclick="stopScanner()">Abbrechen</button>
-        </div>
-    </div>
-
-    <script>
-        // === GLOBAL STATE ===
-        let modules = JSON.parse(localStorage.getItem('swisspearl_modules') || '[]');
-        let lookupDB = JSON.parse(localStorage.getItem('swisspearl_lookup') || '[]');
-        let worker = null;
-        let isScanning = false;
-        let videoStream = null;
-
-        const knownArticles = [
-            { item: "8087846", wp: "280", gen: "G3", size: "XL", cls: "B" },
-            { item: "8087857", wp: "280", gen: "G3", size: "XL", cls: "B" },
-            { item: "8087853", wp: "200", gen: "G3", size: "L", cls: "B2" },
-            { item: "8090468", wp: "150", gen: "G5", size: "M", cls: "A2" }
-        ];
-
-        if (lookupDB.length === 0) {
-            lookupDB = [...knownArticles];
-            saveDB();
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            renderList();
-            renderDB();
+    // INICJALIZACJA OCR BEZ WORKERA (Zapobiega błędom bezpieczeństwa)
+    async function initOCR() {
+        if (bcWorker) return bcWorker;
+        // worker: false wymusza działanie w tym samym wątku, co GitHub Pages akceptuje
+        bcWorker = await Tesseract.createWorker('eng', 1, { worker: false });
+        await bcWorker.setParameters({
+            tessedit_char_whitelist: '0123456789',
+            tessedit_pageseg_mode: '7'
         });
-
-        function switchTab(t) {
-            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-            document.querySelectorAll('.content').forEach(x => x.classList.remove('active'));
-            document.querySelector('.tab[onclick="switchTab(\''+t+'\')"]').classList.add('active');
-            document.getElementById('content-'+t).classList.add('active');
-        }
-
-        function showToast(msg, type='success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.className = type === 'error' ? 'error show' : 'success show';
-            setTimeout(() => toast.className = '', 3000);
-        }
-        
-        function toggleRawText() {
-            const rt = document.getElementById('raw-text');
-            rt.style.display = rt.style.display === 'block' ? 'none' : 'block';
-        }
-
-        // === OCR INITIALIZATION ===
-        let bcWorker = null;
-
-async function initOCR() {
-    if (bcWorker) return bcWorker;
-    
-    // UŻYWAMY worker: false, co wyłącza wielowątkowość. 
-    // To jest wolniejsze o ułamek sekundy, ale DZIAŁA W KAŻDYCH WARUNKACH bezpieczeństwa.
-    bcWorker = await Tesseract.createWorker('eng', 1, {
-        worker: false 
-    });
-
-    await bcWorker.setParameters({
-        tessedit_char_whitelist: '0123456789',
-        tessedit_pageseg_mode: '7'
-    });
-    
-    return bcWorker;
-}
-    
-    // Zamiast przekazywać funkcję w obiekcie, inicjujemy workerem i dodajemy loggera później
-    bcWorker = await Tesseract.createWorker('eng'); 
-    
-    // Jeśli chcesz logi, użyj metody .setLogger
-    await bcWorker.setLogger(m => {
-        console.log(m.status, m.progress);
-        // Opcjonalnie aktualizuj swój pasek postępu tutaj, 
-        // ale unikaj operacji na DOM, które wymagają 'this' lub zewnętrznych kontekstów
-    });
-    
-    return bcWorker;
-}
-                await worker.loadLanguage('eng');
-                await worker.initialize('eng');
-                progress.style.width = '100%';
-                setTimeout(() => { progress.style.width = '0'; statusLabel.textContent = ''; }, 1000);
-                return worker;
-            } catch (err) {
-                showToast('OCR Init Fehler.', 'error');
-                worker = null;
-                throw err;
-            }
-        }
-
-        // === NAPRAWIONA LOGIKA SKANERA (Bypass dla blokad przeglądarki) ===
-        function handleLiveScanClick() {
-            // Synchroniczne sprawdzenie. Jeśli przeglądarka odmawia wsparcia (brak HTTPS/iframe),
-            // ratujemy sytuację otwierając aparat systemowy - Chrome na to pozwoli w tym miejscu.
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                document.getElementById('sn-fallback-upload').click();
-                return;
-            }
-            // Mamy szansę na wideo, uruchamiamy proces.
-            startLiveScan();
-        }
-
-        async function startLiveScan() {
-    const btn = document.getElementById('btn-start-scan');
-    btn.disabled = true;
-
-    try {
-        await initOCR();
-        
-        // Zmieniamy konfigurację kamery na bardziej uniwersalną
-        videoStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: { ideal: "environment" } },
-            audio: false 
-        });
-        
-        const video = document.getElementById('video-preview');
-        
-        // KLUCZOWA POPRAWKA:
-        video.srcObject = videoStream;
-        
-        // Czekamy aż wideo będzie gotowe do wyświetlenia
-        video.onloadedmetadata = () => {
-            video.play();
-            document.getElementById('scanner-modal').style.display = 'block';
-            drawOverlay();
-            isScanning = true;
-            scanLoop();
-        };
-
-    } catch (e) {
-        console.error("Błąd kamery:", e);
-        // Jeśli wideo nie zadziała, włączamy przycisk fallback
-        btn.disabled = false;
-        btn.innerHTML = "📸 Zrób zdjęcie S/N (Kamera zablokowana)";
-        btn.onclick = () => document.getElementById('sn-fallback-upload').click();
-        showToast("Kamera nie odpowiada. Użyj przycisku Zrób zdjęcie.", "error");
+        return bcWorker;
     }
-        }
 
-        function stopScanner() {
-            isScanning = false;
-            document.getElementById('scanner-modal').style.display = 'none';
-            if (videoStream) {
-                videoStream.getTracks().forEach(t => t.stop());
-                videoStream = null;
-            }
-        }
-
-        function drawOverlay() {
-            const canvas = document.getElementById('scanner-overlay');
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-
-            const fW = canvas.width * 0.86;
-            const fH = canvas.height * 0.14;
-            const fX = (canvas.width - fW) / 2;
-            const fY = canvas.height * 0.43;
-
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.clearRect(fX, fY, fW, fH);
-
-            ctx.strokeStyle = '#f0a500';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(fX, fY, fW, fH);
+    async function startBarcodeCamera() {
+        const v = document.getElementById('bcVideo');
+        const status = document.getElementById('bcScanStatus');
+        
+        try {
+            // 1. Uruchom kamerę
+            bcStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+            v.srcObject = bcStream;
+            document.getElementById('bcModal').style.display = 'block';
             
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 4;
-            const cl = 20; 
-            ctx.beginPath();
-            ctx.moveTo(fX, fY+cl); ctx.lineTo(fX, fY); ctx.lineTo(fX+cl, fY);
-            ctx.moveTo(fX+fW-cl, fY); ctx.lineTo(fX+fW, fY); ctx.lineTo(fX+fW, fY+cl);
-            ctx.moveTo(fX, fY+fH-cl); ctx.lineTo(fX, fY+fH); ctx.lineTo(fX+cl, fY+fH);
-            ctx.moveTo(fX+fW-cl, fY+fH); ctx.lineTo(fX+fW, fY+fH); ctx.lineTo(fX+fW, fY+fH-cl);
-            ctx.stroke();
-        }
-
-        async function scanLoop() {
-            if (!isScanning) return;
-
-            const video = document.getElementById('video-preview');
-            if (video.videoWidth > 0 && video.videoHeight > 0) {
-                const cropW = video.videoWidth * 0.86;
-                const cropH = video.videoHeight * 0.14;
-                const cropX = (video.videoWidth - cropW) / 2;
-                const cropY = video.videoHeight * 0.43;
-
-                const c = document.createElement('canvas');
-                const scale = 150 / cropH;
-                c.width = cropW * scale;
-                c.height = 150;
-                const ctx = c.getContext('2d');
-                ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, c.width, c.height);
-
-                try {
-                    const result = await worker.recognize(c);
-                    if(processSNResult(result.data.text)) return; // Stop if success
-                } catch (err) {
-                    console.error("OCR Error in loop", err);
-                }
-            }
-            setTimeout(scanLoop, 300);
-        }
-
-        function processSNResult(text) {
-            let cln = text.replace(/[O]/g, '0').replace(/[Il]/g, '1').replace(/[Z]/g, '2').replace(/[S]/g, '5').replace(/[G]/g, '6').replace(/[T]/g, '7').replace(/[B]/g, '8');
-            cln = cln.replace(/\s/g, ''); // Fix spaces!
-            const match = cln.match(/\d{8,}/);
-            
-            if (match && match[0].length >= 8) {
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                document.getElementById('inp-sn').value = match[0];
-                showToast(`S/N Erkannt: ${match[0]}`);
-                document.getElementById('raw-text').innerText = "S/N RAW: " + text;
-                stopScanner();
-                checkAutoFillSN(match[0]);
-                return true;
-            }
-            return false;
-        }
-
-        // === FALLBACK SCANNER (S/N PHOTO) ===
-        async function processSNPhotoFallback(event) {
-            const file = event.target.files[0];
-            if(!file) return;
-            
-            showToast("Verarbeite S/N Foto...");
-            await initOCR();
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789 ',
-                tessedit_pageseg_mode: '3' // '3' to bezpieczny tryb AUTO
-            });
-
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            img.onload = async () => {
-                const angles = [90, 0, 270, 180];
-                for(let angle of angles) {
-                    document.getElementById('ocr-status').textContent = `Prüfe S/N Rotation: ${angle}°`;
-                    const c = rotateImage(img, angle);
-                    const result = await worker.recognize(c);
-                    if(processSNResult(result.data.text)) {
-                        event.target.value = '';
-                        document.getElementById('ocr-status').textContent = "";
-                        return;
-                    }
-                }
-                showToast("Keine gültige S/N im Foto gefunden.", "error");
-                document.getElementById('ocr-status').textContent = "";
-                event.target.value = '';
-            }
-        }
-
-        // === ETIKETT SCANNER (PHOTO WITH ROTATION) ===
-        async function processLabelPhoto(event) {
-            const file = event.target.files[0];
-            if(!file) return;
-            
-            showToast("Analysiere Etikett...");
+            // 2. Ładuj OCR dopiero gdy kamera działa
+            status.innerText = "Ładowanie OCR...";
             await initOCR();
             
-            await worker.setParameters({
-                tessedit_char_whitelist: '',
-                tessedit_pageseg_mode: '3' // '3' to AUTO
-            });
-
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            img.onload = async () => {
-                const angles = [90, 0, 270, 180]; 
-                let bestText = "";
-                let foundMatch = false;
-
-                for(let angle of angles) {
-                    document.getElementById('ocr-status').textContent = `Prüfe Etikett Rotation: ${angle}°`;
-                    const c = rotateImage(img, angle);
-                    const result = await worker.recognize(c);
-                    bestText = result.data.text;
-                    
-                    const txt = bestText.toUpperCase();
-                    document.getElementById('raw-text').innerText = txt;
-                    
-                    const itemMatch = txt.match(/80\d{5}/);
-                    const wpMatch = txt.match(/(\d{3})\s*(?:WP|W)/);
-                    const genMatch = txt.match(/G[345]/);
-                    const sizeMatch = txt.match(/\b(M|L|XL)\b/);
-                    const classMatch = txt.match(/\b(A2?|B2?)\b/);
-
-                    if(itemMatch || (genMatch && sizeMatch)) {
-                        if(itemMatch) document.getElementById('inp-item').value = itemMatch[0];
-                        if(wpMatch) document.getElementById('inp-wp').value = wpMatch[1];
-                        if(genMatch) document.getElementById('inp-gen').value = genMatch[0];
-                        if(sizeMatch) document.getElementById('inp-size').value = sizeMatch[0];
-                        if(classMatch) document.getElementById('inp-cls').value = classMatch[0];
-                        
-                        showToast(`✓ Etikett erkannt (${angle}°)`);
-                        checkAutoFill(); 
-                        foundMatch = true;
-                        break; 
-                    }
-                }
-                
-                if(!foundMatch) {
-                    showToast("Konnte Etikett nicht sicher lesen. Bitte Rohtext prüfen.", "error");
-                }
-                document.getElementById('ocr-status').textContent = "";
-                event.target.value = '';
-            }
-        }
-
-        function rotateImage(img, angle) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (angle === 90 || angle === 270) {
-                canvas.width = img.height; canvas.height = img.width;
-            } else {
-                canvas.width = img.width; canvas.height = img.height;
-            }
-            ctx.translate(canvas.width/2, canvas.height/2);
-            ctx.rotate(angle * Math.PI / 180);
-            ctx.drawImage(img, -img.width/2, -img.height/2);
-            return canvas;
-        }
-
-        // === FORMS & LOOKUP LOGIC ===
-        function checkAutoFillSN(sn) {
-            const found = lookupDB.find(d => d.sn && d.sn === sn);
-            if (found) fillFormFromDB(found);
-        }
-
-        function checkAutoFill() {
-            const item = document.getElementById('inp-item').value.trim();
-            if (item.length >= 7) {
-                const found = lookupDB.find(d => d.item === item);
-                if (found) fillFormFromDB(found);
-            }
-        }
-
-        function fillFormFromDB(data) {
-            if(data.item) document.getElementById('inp-item').value = data.item;
-            if(data.wp) document.getElementById('inp-wp').value = data.wp;
-            if(data.gen) document.getElementById('inp-gen').value = data.gen;
-            if(data.size) document.getElementById('inp-size').value = data.size;
-            if(data.cls) document.getElementById('inp-cls').value = data.cls;
-            
-            const status = document.getElementById('lookup-status');
-            status.innerHTML = `<span style="color:var(--green)">✓ Aus Artikelliste: ${data.item}</span>`;
-        }
-
-        function saveModule() {
-            const sn = document.getElementById('inp-sn').value.trim();
-            if(!sn) { showToast('Seriennummer fehlt!', 'error'); return; }
-
-            const mod = {
-                id: Date.now(),
-                sn: sn,
-                item: document.getElementById('inp-item').value.trim(),
-                wp: document.getElementById('inp-wp').value.trim(),
-                gen: document.getElementById('inp-gen').value,
-                size: document.getElementById('inp-size').value,
-                cls: document.getElementById('inp-cls').value,
-                palette: document.getElementById('inp-palette').value.trim(),
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            v.onloadedmetadata = () => {
+                drawBarcodeOverlay();
+                status.innerText = "Skanowanie...";
+                scanBarcodeLoop(v);
             };
-
-            modules.push(mod);
-            localStorage.setItem('swisspearl_modules', JSON.stringify(modules));
-            
-            document.getElementById('inp-sn').value = '';
-            document.getElementById('lookup-status').innerHTML = '';
-            
-            showToast('✓ Gespeichert');
-            renderList();
+        } catch(e) {
+            alert("Błąd kamery: " + e.message);
         }
+    }
 
-        // === LIST RENDERING ===
-        function renderList() {
-            const container = document.getElementById('module-list');
-            container.innerHTML = '';
-            [...modules].reverse().forEach((m, idx) => {
-                const isMatched = lookupDB.some(db => (db.sn && db.sn === m.sn) || (db.item && db.item === m.item));
-                const card = document.createElement('div');
-                card.className = 'ic';
-                card.innerHTML = `
-                    <div class="ic-main">
-                        <div class="badge ${isMatched ? 'matched' : 'not-found'}">${isMatched ? '✓ Matched' : '⚠ Not Found'}</div>
-                        <div class="ic-sn">S/N: ${m.sn}</div>
-                        <div class="ic-details">Item: <span>${m.item || '-'}</span> | ${m.wp ? m.wp+'Wp | ' : ''} Gen: <span>${m.gen || '-'}</span> | Gr: <span>${m.size || '-'}</span> | Kl: <span>${m.cls || '-'}</span></div>
-                        <div class="ic-details" style="margin-top:5px; color:var(--accent);">Palette: ${m.palette || '-'} | Zeit: ${m.time}</div>
-                    </div>
-                    <div class="ic-actions"><button class="btn-icon" onclick="deleteModule(${m.id})">🗑</button></div>
-                `;
-                container.appendChild(card);
-            });
+    function drawBarcodeOverlay() {
+        const c = document.getElementById('bcOverlay');
+        const ctx = c.getContext('2d');
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0,0,c.width,c.height);
+        ctx.clearRect(c.width*0.1, c.height*0.4, c.width*0.8, c.height*0.15);
+        ctx.strokeStyle = '#f0a500';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(c.width*0.1, c.height*0.4, c.width*0.8, c.height*0.15);
+    }
+
+    async function scanBarcodeLoop(video) {
+        if(document.getElementById('bcModal').style.display === 'none') return;
+        
+        const c = document.createElement('canvas');
+        c.width = 400; c.height = 120;
+        c.getContext('2d').drawImage(video, video.videoWidth*0.1, video.videoHeight*0.4, video.videoWidth*0.8, video.videoHeight*0.15, 0, 0, 400, 120);
+        
+        const { data: { text } } = await bcWorker.recognize(c);
+        const sn = text.replace(/\s/g, '').match(/\d{8,}/);
+        
+        if(sn) {
+            const input = document.querySelector('input[type="text"]');
+            if(input) input.value = sn[0];
+            stopBarcodeCamera();
+        } else {
+            setTimeout(() => scanBarcodeLoop(video), 800);
         }
+    }
 
-        function deleteModule(id) {
-            if(confirm("Eintrag löschen?")) {
-                modules = modules.filter(m => m.id !== id);
-                localStorage.setItem('swisspearl_modules', JSON.stringify(modules));
-                renderList();
-            }
-        }
-
-        function clearList() {
-            if(confirm("⚠️ Alle erfassten Module unwiderruflich löschen?")) {
-                modules = [];
-                localStorage.setItem('swisspearl_modules', '[]');
-                renderList();
-            }
-        }
-
-        // === PDF IMPORT (PDF.JS) ===
-        function loadPdfJs() {
-            if (window.pdfjsLib) return Promise.resolve();
-            return new Promise((res, rej) => {
-                const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
-                s.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; res(); };
-                s.onerror = rej; document.head.appendChild(s);
-            });
-        }
-
-        async function handlePDFUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            showToast("Lese PDF...");
-            try {
-                await loadPdfJs();
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                let textContent = "";
-                for(let i=1; i<=pdf.numPages; i++){
-                    const page = await pdf.getPage(i);
-                    const content = await page.getTextContent();
-                    textContent += content.items.map(item => item.str).join(' ') + " ";
-                }
-                const snMatches = [...textContent.matchAll(/16\d{12,}/g)];
-                const itMatches = [...textContent.matchAll(/80\d{5}/g)];
-                let imported = 0;
-                for(let i=0; i<Math.min(snMatches.length, itMatches.length); i++) {
-                    const sn = snMatches[i][0];
-                    const item = itMatches[i][0];
-                    if(!lookupDB.some(d => d.sn === sn)) {
-                        lookupDB.push({ sn, item, source: 'PDF' });
-                        imported++;
-                    }
-                }
-                saveDB();
-                showToast(`✓ ${imported} Seriennummern importiert.`);
-            } catch (err) {
-                console.error(err);
-                showToast("Fehler beim PDF Import", "error");
-            }
-            e.target.value = '';
-        }
-
-        function saveDB() { localStorage.setItem('swisspearl_lookup', JSON.stringify(lookupDB)); renderDB(); }
-
-        function renderDB() {
-            const list = document.getElementById('db-list');
-            document.getElementById('db-count').textContent = lookupDB.length;
-            list.innerHTML = '';
-            lookupDB.slice(0, 50).forEach(d => { 
-                const div = document.createElement('div');
-                div.className = 'ic'; div.style.padding = '10px';
-                div.innerHTML = `<div style="font-family:var(--font-mono); font-size:0.9rem;">${d.sn ? `S/N: ${d.sn} <br>` : ''}Item: <span style="color:var(--accent)">${d.item}</span>${d.wp ? ` | ${d.wp}Wp` : ''} ${d.gen ? ` | ${d.gen}` : ''} ${d.size ? ` | ${d.size}` : ''}</div>`;
-                list.appendChild(div);
-            });
-            if (lookupDB.length > 50) list.innerHTML += '<div style="text-align:center; color:gray; margin-top:10px;">... und '+(lookupDB.length-50)+' weitere</div>';
-        }
-
-        // === EXPORT PDF (jsPDF + autoTable) ===
-        function exportPDF() {
-            if (modules.length === 0) { showToast("Liste ist leer", "error"); return; }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('landscape'); 
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text('SWISSPEARL', 14, 15);
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('Modul Erfassungsliste · Sunskin Roof Lap', 14, 22);
-            
-            const genStats = { G3:0, G4:0, G5:0 };
-            modules.forEach(m => { if(m.gen) genStats[m.gen] = (genStats[m.gen] || 0) + 1; });
-            doc.setFontSize(10); doc.text(`Erstellt: ${new Date().toLocaleDateString()} | Gen: G3:${genStats.G3} G4:${genStats.G4} G5:${genStats.G5}`, 14, 30);
-
-            const tableBody = [];
-            modules.forEach((m, idx) => {
-                tableBody.push([(idx+1).toString(), m.sn, m.item || '', m.wp || '', m.gen || '', m.size || '', m.cls || '', m.palette || '', m.time || '', '']);
-                tableBody.push(['↳', '', '', '', '', '', '', '', '', '']);
-            });
-
-            doc.autoTable({
-                startY: 35,
-                head: [['#', 'Seriennummer', 'Artikel', 'Wp', 'Gen.', 'Gr.', 'Kl.', 'Palette', 'Zeit', 'Objekt (skm-... / nu-s-...)']],
-                body: tableBody,
-                theme: 'grid', headStyles: { fillColor: [40, 40, 40], textColor: 255 }, styles: { fontSize: 8, cellPadding: 2 },
-                columnStyles: { 9: { cellWidth: 32 } },
-                didParseCell: function(data) {
-                    if (data.row.raw[0] === '↳') { data.cell.styles.fillColor = [230, 242, 255]; data.cell.styles.minCellHeight = 8; }
-                },
-                didDrawPage: function(data) {
-                    doc.setFontSize(8);
-                    doc.text('Seite ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 10);
-                    doc.text('Swisspearl Modul Scanner', doc.internal.pageSize.width/2, doc.internal.pageSize.height - 10, {align: 'center'});
-                    doc.text('Entwickelt von Milczuk', doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 10, {align: 'right'});
-                }
-            });
-
-            universalDownload(doc.output('blob'), `Swisspearl_Module_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.pdf`);
-            showToast('✓ PDF generiert');
-        }
-
-        // === EXPORT EXCEL (SheetJS) / Fallback to CSV ===
-        function exportExcel() {
-            if (modules.length === 0) { showToast("Liste ist leer", "error"); return; }
-            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
-            try {
-                if(typeof XLSX === 'undefined') throw new Error("XLSX not loaded");
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(modules), "Module");
-                const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-                universalDownload(new Blob([wbout], {type: "application/octet-stream"}), `Swisspearl_Module_${dateStr}.xlsx`);
-                showToast('✓ Excel exportiert');
-            } catch (e) {
-                console.warn("SheetJS fehlgeschlagen, Fallback zu CSV", e);
-                exportCSVFallback(dateStr);
-            }
-        }
-
-        function exportCSVFallback(dateStr) {
-            let csvLines = [['S/N', 'Item', 'Wp', 'Gen', 'Size', 'Class', 'Palette', 'Zeit'].join(';')];
-            modules.forEach(m => csvLines.push([m.sn, m.item, m.wp, m.gen, m.size, m.cls, m.palette, m.time].join(';')));
-            universalDownload(new Blob(['\uFEFF' + csvLines.join('\r\n')], {type: 'text/csv;charset=utf-8'}), `Swisspearl_Module_${dateStr}.csv`);
-            showToast('✓ CSV exportiert');
-        }
-
-        function universalDownload(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = filename; a.style.display = 'none'; a.target = '_blank';
-            document.body.appendChild(a);
-            if (typeof a.click === 'function') a.click();
-            else a.dispatchEvent(new MouseEvent('click', {view:window, bubbles:true, cancelable:true}));
-            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-        }
-    </script>
+    function stopBarcodeCamera() {
+        document.getElementById('bcModal').style.display = 'none';
+        if(bcStream) bcStream.getTracks().forEach(t => t.stop());
+    }
+</script>
 </body>
 </html>
